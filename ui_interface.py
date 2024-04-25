@@ -3,24 +3,23 @@ from module_edt import Prof, Salle, Matiere, Groupe
 #OBJET DE L'EDT AFFICHABLE
 #PROF
 class UIProf(Prof):
-  def __init__(self, nom : str, value = None):
+  def __init__(self, nom : str):
     super().__init__(nom)
+    self.params = {"nom":"text", "commentaire":"textbox", "contrainte_annuel":"calendar"}
+    self.week_params = {"contrainte_de_semaine":"calendar"}
+    self.default = {"contrainte_de_semaine":"contrainte_annuel"}
+
     self.commentaire = ""
-    self.contrainte = [[0 for i in range(6)] for j in range(5)] ### A CHANGER ###
-
-    self.params = {"nom":"text", "commentaire":"textbox", "contrainte":"calendar"}
-    self.week_params = {}
-
-    if value is not None:
-      self.load(value)
+    self.contrainte_annuel = [[0 for i in range(6)] for j in range(5)] ### A CHANGER ###
+    self.contrainte_de_semaine = {}
 
   def cget(self, param):
     if param == "nom":
       return self.nom
     elif param == "commentaire":
       return self.commentaire
-    elif param == "contrainte":
-      return self.contrainte
+    elif param == "contrainte_annuel":
+      return self.contrainte_annuel
     else:
       raise ValueError(f"parametre {param} invalide")
 
@@ -29,16 +28,37 @@ class UIProf(Prof):
       self.nom = value
     elif param == "commentaire":
       self.commentaire = value
-    elif param == "contrainte":
-      self.contrainte = value
+    elif param == "contrainte_annuel":
+      self.contrainte_annuel = value
+    else:
+      raise ValueError(f"parametre {param} invalide")
+
+  def cget_week(self, param, semaine):
+    if param == "contrainte_de_semaine":
+      ret = self.contrainte_de_semaine.get(semaine)
+      if ret is None:
+        return self.cget(self.default[param])
+      else:
+        return ret
+    else:
+      raise ValueError(f"parametre {param} invalide")
+
+  def configure_week(self, param, value, semaine):
+    if param == "contrainte_de_semaine":
+      if value == self.cget(self.default[param]):
+        if self.contrainte_de_semaine.get(semaine) is not None:
+          del self.contrainte_de_semaine[semaine]
+      else:
+        self.contrainte_de_semaine[semaine] = value
     else:
       raise ValueError(f"parametre {param} invalide")
 
   def save(self):
-    return {"commentaire":self.commentaire, "contrainte":self.contrainte}
+    return {"commentaire":self.commentaire, "contrainte_annuel":self.contrainte_annuel}
 
-  def load(self, value):
-    pass
+  def load(self, value, all):
+    self.commentaire = value["commentaire"]
+    self.contrainte_annuel = value["contrainte_annuel"]
 
 #SALLE
 class UISalle(Salle):
@@ -47,18 +67,18 @@ class UISalle(Salle):
     self.nom = nom
     self.commentaire = ""
 
-    self.params = {"nom":"text", "commentaire":"textbox", "noms":"textlist", "capacite":"integer"}
+    self.params = {"nom":"text", "commentaire":"textbox", "noms_des_salles":"textlist", "capacite":"integer"}
     self.week_params = {}
 
-    self.noms = []
+    self.noms_des_salles = []
 
   def cget(self, param):
     if param == "nom":
       return self.nom
     elif param == "commentaire":
       return self.commentaire
-    elif param == "noms":
-      return self.noms
+    elif param == "noms_des_salles":
+      return self.noms_des_salles
     elif param == "capacite":
       return self.capacite
     else:
@@ -69,25 +89,33 @@ class UISalle(Salle):
       self.nom = value
     elif param == "commentaire":
       self.commentaire = value
-    elif param == "noms":
-      self.noms = value
+    elif param == "noms_des_salles":
+      self.noms_des_salles = value
       self.nombre = len(value)
     elif param == "capacite":
       self.capacite = value
     else:
       raise ValueError(f"parametre {param} invalide")
 
+  def save(self):
+    return {"commentaire":self.commentaire, "noms_des_salles":self.noms_des_salles, "capacite":self.capacite}
+
+  def load(self, value, all):
+    self.commentaire = value["commentaire"]
+    self.noms_des_salles = value["noms_des_salles"]
+    self.nombre = len(self.noms_des_salles)
+    self.capacite = value["capacite"]
+
 #MATIERE
 class UIMatiere(Matiere):
   def __init__(self, nom : str):
     super().__init__(nom)
-    self.params = {"nom":"text", "commentaire":"textbox", "prof_par_defaut":"prof"}
+    self.params = {"nom":"text", "commentaire":"textbox"}
     self.week_params = {"deroulement_peda":"derpeda"}
     self.default = {"deroulement_peda":"deff"}
 
     self.commentaire = ""
     self.deff = []
-    self.prof_par_defaut = None
     self.deroulement_peda = {}
 
   def cget(self, param):
@@ -97,8 +125,6 @@ class UIMatiere(Matiere):
       return self.deff
     elif param == "commentaire":
       return self.commentaire
-    elif param == "prof_par_defaut":
-      return self.prof_par_defaut
     else:
       raise ValueError(f"parametre {param} invalide")
 
@@ -107,8 +133,6 @@ class UIMatiere(Matiere):
       self.nom = value
     elif param == "commentaire":
       self.commentaire = value
-    elif param == "prof_par_defaut":
-      self.prof_par_defaut = value
     else:
       raise ValueError(f"parametre {param} invalide")
 
@@ -129,10 +153,38 @@ class UIMatiere(Matiere):
           del self.deroulement_peda[semaine]
       else:
         self.deroulement_peda[semaine] = value
-
-      print(self.deroulement_peda)
     else:
       raise ValueError(f"parametre {param} invalide")
+
+  def save(self):
+    deroulement = {}
+    for s,l in self.deroulement_peda.items():
+      liste = []
+      for t in l:
+        salle = t[3]
+        if salle is not None:
+          salle = salle.nom
+        liste.append(({p.nom : [g.nom for g in gs] for p, gs in t[0].items()}, t[1], t[2], salle))
+      deroulement[s] = liste
+    return {"commentaire":self.commentaire, "deroulement_peda":deroulement}
+
+  def load(self, value, all):
+    self.deroulement_peda  = {}
+    for s,l in value["deroulement_peda"].items():
+      liste = []
+      for t in l:
+        if len(t) == 4:
+          salle = t[3]
+          if salle is not None:
+            salle = all[salle]
+          liste.append(({all[p] : [all[g] for g in gs] for p, gs in t[0].items()}, t[1], t[2], salle))
+        else: #retro compatibilité
+          salle = t[2]
+          if salle is not None:
+            salle = all[salle]
+          liste.append(({all[p] : [all[g] for g in gs] for p, gs in t[0].items()}, t[1], 1, salle))
+      self.deroulement_peda[int(s)] = liste
+    self.commentaire = value["commentaire"]
 
 #GROUPE
 class UIGroupe(Groupe):
@@ -167,6 +219,14 @@ class UIGroupe(Groupe):
       self.effectif = value
     else:
       raise ValueError(f"parametre {param} invalide")
+
+  def save(self):
+    return {"commentaire":self.commentaire, "etudiants":self.etudiants, "effectif":self.effectif}
+
+  def load(self, value, all):
+    self.commentaire = value["commentaire"]
+    self.etudiants = value["etudiants"]
+    self.effectif = value["effectif"]
 
 
 
@@ -206,4 +266,27 @@ class DataManager():
     ret = [{}, {}, {}, {}]
     for item_nom, item in self.all.items():
       if isinstance(item, UIProf):
-        ret[0][item_nom] = {}
+        ret[0][item_nom] = item.save()
+      elif isinstance(item, UISalle):
+        ret[1][item_nom] = item.save()
+      elif isinstance(item, UIGroupe):
+        ret[2][item_nom] = item.save()
+      elif isinstance(item, UIMatiere):
+        ret[3][item_nom] = item.save()
+
+    return ret
+
+  def from_json(self, values):
+    self.all = {}
+    for item_nom, value in values[0].items():
+      self.all[item_nom] = UIProf(item_nom)
+      self.all[item_nom].load(value, self.all)
+    for item_nom, value in values[1].items():
+      self.all[item_nom] = UISalle(item_nom)
+      self.all[item_nom].load(value, self.all)
+    for item_nom, value in values[2].items():
+      self.all[item_nom] = UIGroupe(item_nom)
+      self.all[item_nom].load(value, self.all)
+    for item_nom, value in values[3].items():
+      self.all[item_nom] = UIMatiere(item_nom)
+      self.all[item_nom].load(value, self.all)

@@ -1,8 +1,6 @@
 from math import exp
 from typing import List
 from random import choice, random
-import matplotlib.pyplot as plt
-from module_plot import *
 
 
 class Prof:
@@ -11,6 +9,8 @@ class Prof:
     :param: nom : nom du prof """
     self.nom = nom
     self.contrainte = None
+
+    self.cours = [0 for i in range(6)]
 
 
 class Salle:
@@ -88,14 +88,12 @@ class Groupe:
 
 class Element:
   """ simple structure de donnée pour les éléments de l'EDT """
-  def __init__(self, groupe_salle : Salle, groupe : Groupe, prof : Prof, matiere : Matiere, type : str = '',* , creneau = None):
+  def __init__(self, groupe_salle : Salle, groupe : Groupe, prof : Prof, matiere : Matiere, *, creneau = None):
     self.groupe_salle = groupe_salle
     self.groupe = groupe
     self.prof = prof
     self.matiere = matiere
     self.creneau = creneau
-    
-    self.type = type #str : CM ou TD
     
     self.autre = [] #list(Element) : liste des cours adjacents a celui ci (crenneau multiple)
     
@@ -110,14 +108,14 @@ class Edt:
   def __init__(self, cren_par_jour : List[int], heure_pause : int = 2):
     """ classe principale de l'edt, contient une liste d'objets 'Element' par crenaux
     :param: cren_par_jour : liste du nombre de créneaux par jour """
-    self._cren_par_jour = cren_par_jour
+    self.cren_par_jour = cren_par_jour
     self._nombre_jour = len(cren_par_jour)
     self._creneau = [[[] for j in range(i)] for i in cren_par_jour]
     self._dict_cours = {} #dictionaire {Element : (jour, heure)}
     self._heure_pause = heure_pause
+    self._liste_prof = set()
 
-    self.nb_eleve = 100
-    self.dict_cout_creneau = {(j, h) : (h**2)/(200 * self.nb_eleve) for j, h_max in enumerate(cren_par_jour) for h in range(h_max)} ##valeur en dure a changer 
+    self.dict_cout_creneau = {(j, h) : (h**2)/50 for j, h_max in enumerate(cren_par_jour) for h in range(h_max)} ##valeur en dure a changer 
     self.cout = 0
 
   def append(self, element : Element, jour : int, heure : int):
@@ -128,6 +126,13 @@ class Edt:
     self._creneau[jour][heure].append(element)
     self._dict_cours[element] = (jour, heure)
 
+    element.prof.cours[jour] += 1
+    if element.prof not in self._liste_prof:
+      self._liste_prof.add(element.prof)
+
+  def get(self, jour, heure):
+    return self._creneau[jour][heure]
+
   def deplacer(self, element : Element, cren_dep, cren_arr):
     """ deplace un element dans l'edt
     :param: element : objet 'Element' à deplacer
@@ -137,50 +142,24 @@ class Edt:
     #ajoute le cours
     self._creneau[cren_arr[0]][cren_arr[1]].append(element)
     self._dict_cours[element] = (cren_arr[0], cren_arr[1])
+    #changement des donnée du prof
+    element.prof.cours[cren_dep[0]] -= 1
+    element.prof.cours[cren_arr[0]] += 1
   
-  def show(self, *, juste_groupe = []):
-    """ créer un fichier 'edt.png' représentant l'edt
-    différents éléments sur un même créneau n'apparaissent pas (seul le premier) """
-    ax = setup()
-    for i, jour_i in enumerate(self._creneau):
-      for j, cren_j in enumerate(jour_i):
-        for elmt in cren_j:
-          titre = elmt.type + " " + elmt.matiere.nom
-          sous_titre = elmt.groupe_salle.noms[0] + " - " + elmt.prof.nom
-          couleur = elmt.matiere.couleur
-
-          if juste_groupe == []:
-            cren_mul = len(cren_j) > 1
-            dessin_rectangle((i, j), titre, sous_titre, ax = ax, couleur = couleur, cercle = cren_mul)
-            break
-          elif juste_groupe != [] and elmt.groupe.nom in juste_groupe:
-            cren_mul = False
-            for elmt2 in cren_j:
-              if elmt2 != elmt and elmt2.groupe.nom in juste_groupe:
-                cren_mul = True
-            dessin_rectangle((i, j), titre, sous_titre, ax = ax, couleur = couleur, cercle = cren_mul)
-            break
-            
-    nom_fichier = "edt"
-    if juste_groupe != []:
-      nom_fichier += "_" + juste_groupe[0]
-    plt.savefig(nom_fichier + ".png")
-
   """def copy(self, other):
-    self._cren_par_jour = other.cren_par_jour
+    self.cren_par_jour = other.cren_par_jour
     self._nombre_jour = other._nombre_jour
     self._creneau = 
     self._dict_cours = 
     self._heure_pause = other._heure_pause
 
-    self.nb_eleve = other.nb_eleve
     self.dict_cout_creneau = other.dict_cout_creneau
     self.cout = other.cout"""
     
   def cout_horaire(self, cours : Element, creneau):
     """Ajoute un coup extra aux creneaux que l'utilisateur souhaite qui soint vides
      -> cout de cours 'simple' """
-    coeff = self.dict_cout_creneau[creneau] * cours.groupe.effectif
+    coeff = self.dict_cout_creneau[creneau]
     if cours.prof.contrainte is not None:
       coeff += cours.prof.contrainte[creneau[0]][creneau[1]]
     return 100 * coeff
@@ -192,6 +171,9 @@ class Edt:
     :param: creneau : (jour, heure) creneau du cours
     :return: int : 100 par cours mal placé par rapport au cours 'cours' """
     cout = 0
+
+    if cours.creneau is not None:
+      return 0
       
     for cours_apres in cours.apres:
       horaires_cours_apres = self._dict_cours[cours_apres]
@@ -326,7 +308,6 @@ class Edt:
         cout += self.cout_creneau_multiple(cours_i, creneau) * 0.5
 
         cout += self.cout_horaire(cours_i, creneau)
-        cout += self.cout_repartition_semaine_prof(cours_i)
       #recupère la liste des prof, groupe et salle
       liste_prof.append(cours_i.prof)
       liste_groupe.append(cours_i.groupe)
@@ -338,13 +319,33 @@ class Edt:
       cout += self.cout_creneau_multiple(cours, creneau)
       
       cout += self.cout_horaire(cours, creneau)
-      cout += self.cout_repartition_semaine_prof(cours)
     #couts generaux
     cout += self.cout_prof(liste_prof, cours, present)
     cout += self.cout_groupe(liste_groupe, cours, present)
     cout += self.cout_salle(liste_salle , cours, present)
     
     return cout
+
+  def delta_cout_prof_cours(self, cours, cren_dep, cren_arr):
+    """"""
+    liste_cours = cours.prof.cours[:]
+    delta_cout = - self.cout_prof_cours_liste(liste_cours)
+    
+    liste_cours[cren_dep[0]] -= 1
+    liste_cours[cren_arr[0]] += 1
+
+    delta_cout += self.cout_prof_cours_liste(liste_cours)
+
+    return delta_cout
+  
+  def cout_prof_cours_liste(self, liste_cours):
+    """"""
+    delta_x = 0
+    somme = 0
+    for i in liste_cours:
+      delta_x += i**2
+      somme += i
+    return i * 20 / delta_x
 
   def cout_edt_total(self):
     """ utilise la fonction cout_creneau pour calculer le coût total de l'EDT :
@@ -354,6 +355,10 @@ class Edt:
       cout_edt_tot += self.cout_creneau(creneau)
 
     self.cout = cout_edt_tot
+
+    for prof in self._liste_prof:
+      cout_edt_tot += self.cout_prof_cours_liste(prof.cours)
+
     return cout_edt_tot
 
   def choix_saut(self):
@@ -388,7 +393,7 @@ class Edt:
     #Calcul du coût du créneau de départ et de celui d'arrivée, avec le deplacement fait virtuellement
     cout_local_final = self.cout_creneau(creneau_arrivee, cours = cours, present = False)
 
-    return cout_local_final - cout_local_initial
+    return cout_local_final - cout_local_initial + self.delta_cout_prof_cours(cours, creneau_depart, creneau_arrivee)
     
   def saut(self, temperature : float):
     """ déplace un cours vers un autre créneaux si ce deplacement  :
@@ -446,98 +451,3 @@ class Edt:
     if len(probleme)==0:
       print ('emplois du temps validé')
     return probleme
-
-  def analyse_semaine(self, groupes):
-    """analyse de la présence de trous dans la semaine pour chaque groupes donnés 
-    :param: groupes : liste des groupes concernés (ex : [[Promo, TdA],[Promo, TdB],...])"""
-    rapport = []
-    for groupe in groupes:
-      #Format (pour une semaine) : [taille du trou max, somme des trous, nbr de cours plus grosse journee, moyenne du cours le plus tard]
-      """Remarques pour la moyenne du cours le plus tard :
-      - On numérote les créneau de 0 à 5
-      - On considère que les jours vides finissent au créneau 0 (et ont donc un impact sur le calcul)"""
-      rapport_groupe = [0,0,0,0]
-      heure_cours_les_plus_tard = []
-      for jour in self._creneau:
-        indice_cours_debut_trou = 0
-        indice_cours_debut_trou_max = 0
-        indice_cours_fin_trou_max = 0
-        cours_debut_trou_max = None
-        cours_fin_trou_max = None
-        compteur = 0
-        trou_max = 0
-        somme_trous = 0
-        nbr_cours_avant = 0
-        nbr_cours_apres = 0
-        taille_journee = 0
-        heure_cours_max = 0
-        for creneau in jour:
-          for cours in creneau:
-            if cours.groupe.nom in groupe:
-              taille_journee += 1
-              heure_cours_max = compteur
-              #Cas où c'est le premier cours de la journée
-              if cours_debut_trou_max == None:
-                cours_debut_trou_max = cours
-                indice_cours_debut_trou = compteur
-              #Cas où on a un nouveau trou plus grand ou égal que le précédent
-              elif compteur - indice_cours_debut_trou - 1 >= trou_max:
-                somme_trous += compteur - indice_cours_debut_trou - 1
-                trou_max = compteur - indice_cours_debut_trou - 1
-                indice_cours_debut_trou_max = indice_cours_debut_trou
-                indice_cours_fin_trou_max = compteur
-                indice_cours_debut_trou = compteur
-                #Cas où c'est le 2eme cours de la journée
-                if cours_fin_trou_max == None:
-                  cours_fin_trou_max = cours
-                #Cas où c'est au moins le 3eme cours de la journée
-                else:
-                  nbr_cours_avant += nbr_cours_apres + 1
-                  nbr_cours_apres = 0       
-              #Cas où on a un nouveau trou plus petit que le précédent
-              elif compteur - indice_cours_debut_trou - 1 < trou_max:
-                somme_trous += compteur - indice_cours_debut_trou - 1
-                indice_cours_debut_trou = compteur
-                nbr_cours_apres += 1     
-          compteur+=1
-        #On actualise le rapport pour le jour
-        if trou_max >= rapport_groupe[0]:
-          rapport_groupe[0] = trou_max
-        rapport_groupe[1] += somme_trous
-        if taille_journee > rapport_groupe[2]:
-          rapport_groupe[2] = taille_journee
-        heure_cours_les_plus_tard.append(heure_cours_max)
-      #On actualise le rapport pour le groupe
-    
-      #Calcul de la moyenne du cours le plus tard
-      x = 0
-      for i in heure_cours_les_plus_tard:
-        x += i
-      rapport_groupe[3] = x/len(heure_cours_les_plus_tard)
-    
-      rapport.append([groupe, rapport_groupe])
-    return rapport
-
-  def liste_nbr_cours_par_jour_prof(self, prof):
-    """pour un prof donné calcule une liste avec le nombre de cours qu’il donne pour chaque jour de la semaine (ex : [3,2,0,3,4]).
-    :param: prof : nom du prof concerné"""
-    liste_nbr_cours = []
-    for jour in self._creneau:
-      x=0
-      for creneau in jour:
-        for cours in creneau:
-          if cours.prof == prof:
-            x+=1
-      liste_nbr_cours.append(x)
-    return liste_nbr_cours
-  
-  def cout_repartition_semaine_prof(self, cours):
-    """pour une semaine donnée calcule un cout pour dire si la semaine est bien répartie ou pas
-    Plus le score est élevé moins les jours sont vidés (critère efficace que pour les profs car c'est mieux s'ils travaillent beaucoup sur peu de jours
-    :param: prof : nom du prof concerné"""
-    cout = 0
-    liste_nbr_cours = self.liste_nbr_cours_par_jour_prof(cours.prof)
-    for i in liste_nbr_cours:
-      cout+=i**2
-    cout =  (1/cout) * 5
-    return cout  # 0 < cout < 1

@@ -8,7 +8,7 @@ class TextEntry(CTkFrame):
     super().__init__(master, fg_color='transparent', corner_radius=0, **kwargs)
 
     #contenu
-    self.titre_label = CTkLabel(self, text=titre)
+    self.titre_label = CTkLabel(self, text=titre.replace("_", " ").upper())
     self.entree = CTkEntry(self, fg_color="transparent")
 
     self.entree.insert(0, value)
@@ -45,7 +45,7 @@ class TextBoxEntry(CTkFrame):
     super().__init__(master, fg_color='transparent', corner_radius=0, **kwargs)
 
     #contenu
-    self.titre_label = CTkLabel(self, text=titre)
+    self.titre_label = CTkLabel(self, text=titre.replace("_", " ").upper())
     self.entree = CTkTextbox(self, height=103, border_width=2, fg_color="transparent")
 
     self.entree.insert(0., value)
@@ -68,7 +68,7 @@ class TextBoxEntry(CTkFrame):
 #CALENDAR
 class CalendarButton(CTkButton):
     def __init__(self, master, *, value, i, j, grid, **kwargs):
-      super().__init__(master, command=self.clicked, text="", corner_radius=0, width=30, height=18, **kwargs)
+      super().__init__(master, command=self.clicked, text="", border_width=1, corner_radius=0, width=30, height=18, **kwargs)
 
       #variable
       self.colors = [("#090", "#080"), ("#f00", "#e00")]
@@ -122,7 +122,7 @@ class CalendarEntry(CTkFrame):
     value_c = deepcopy(value)
 
     #contenu
-    self.titre_label = CTkLabel(self, text=titre)
+    self.titre_label = CTkLabel(self, text=titre.replace("_", " ").upper())
     self.entree = CalendarGrid(self, value=value_c)
 
     self.titre_label.pack(fill=X, padx=3)
@@ -146,7 +146,7 @@ class TextListEntry(CTkFrame):
     super().__init__(master, fg_color='transparent', corner_radius=0, **kwargs)
     
     #contenu
-    self.titre_label = CTkLabel(self, text=titre)
+    self.titre_label = CTkLabel(self, text=titre.replace("_", " ").upper())
     self.frame = CTkFrame(self, border_width=2, fg_color="transparent")
     self.frame_t = CTkFrame(self.frame, fg_color="transparent")
     self.frame_g = CTkFrame(self.frame_t, fg_color="transparent")
@@ -179,7 +179,7 @@ class TextListEntry(CTkFrame):
 
   def ajouter_ligne(self, texte):
     label = CTkLabel(self.frame_g, text=texte, anchor="w")
-    button = CTkLabel(self.frame_d, text="x", anchor="e")
+    button = CTkLabel(self.frame_d, text=" x ", anchor="e")
 
     label.pack(fill=X, expand=True, padx=3)
     button.pack(padx=3)
@@ -217,7 +217,7 @@ class IntegerEntry(CTkFrame):
     super().__init__(master, fg_color='transparent', corner_radius=0, **kwargs)
 
     #contenu
-    self.titre_label = CTkLabel(self, text=titre)
+    self.titre_label = CTkLabel(self, text=titre.replace("_", " ").upper())
     self.entree = CTkEntry(self, fg_color="transparent")
 
     self.entree.insert(0, str(value))
@@ -280,23 +280,25 @@ class ClassButton(CTkButton):
   def exit(self, event=None):
     self.ext(self)
 
-    if self.callback is not None:
-      self.callback(self.value)
-
     self.configure(fg_color="gray85")
     self.configure(state="normal")
 
+    if self.callback is not None:
+      self.callback(self.value)
+
   def set(self, item):
+    if item is None:
+      self.reset()
+      return
     self.value = item
     self.configure(text=item.nom)
-
-    self.master.focus_set()
 
   def reset(self, event=None):
     self.value = None
     self.configure(text=" ")
 
-    self.master.focus_set()
+    if event is not None:
+      self.master.focus_set()
 
   def disable(self):
     self.enabled = False
@@ -306,11 +308,76 @@ class ClassButton(CTkButton):
 
 class ProfButton(ClassButton):
   def __init__(self, master, value, inp, ext, callback=None, **kwargs):
-    super().__init__(master, value, inp, ext, "PROFESSEUR", callback, **kwargs)
+    super().__init__(master, value, inp, ext, "PROFESSEURS", callback, **kwargs)
 
 class GroupeButton(ClassButton):
   def __init__(self, master, value, inp, ext, callback=None, **kwargs):
-    super().__init__(master, value, inp, ext, "GROUPE D'ETUDIANT", callback, **kwargs)
+    super().__init__(master, value, inp, ext, "GROUPES D'ETUDIANTS", callback, **kwargs)
+
+class SalleButton(ClassButton):
+  def __init__(self, master, value, inp, ext, callback=None, **kwargs):
+    super().__init__(master, value, inp, ext, "GROUPES DE SALLES", callback, **kwargs)
+
+#CRENEAU
+class CreneauButton(CTkButton):
+  def __init__(self, master, set, jour, heure):
+    super().__init__(master, command=self.clic, border_width=1, text="", width=30, height=18, corner_radius=0)
+    self.set = set
+    self.jour = jour
+    self.heure = heure
+
+  def clic(self):
+    self.set((self.jour, self.heure))
+
+class CreneauInput(CTkFrame):
+  def __init__(self, master, value, titre, nb_creneau, nb_jour):
+    super().__init__(master, fg_color="transparent")
+
+    creneau_fixe_frame = CTkFrame(self, fg_color="transparent", corner_radius=0)
+    creneau_fixe_frame.pack(fill=X, expand=True)
+    CTkLabel(creneau_fixe_frame, text=titre).pack(side=LEFT, padx=3)
+    self.button = CTkButton(creneau_fixe_frame, text=" ", command=self.input, text_color_disabled="gray25", fg_color="gray85", hover_color="gray83", text_color="black")
+    self.button.pack(side=RIGHT, fill=X, expand=True, padx=(3,0))
+
+    self.creneaux_frame = CTkFrame(self, fg_color="transparent", corner_radius=0)
+    for cren in range(nb_creneau):
+      for jour in range(nb_jour):
+        CreneauButton(self.creneaux_frame, self.set, jour, cren).grid(row=cren, column=jour, sticky="nsew")
+
+    self.set(value)
+
+    self.button.bind("<FocusOut>", self.exit)
+    self.button.bind("<Escape>", lambda _:master.focus_set())
+    self.button.bind("<Delete>", self.reset)
+    self.button.bind("<BackSpace>", self.reset)
+
+  def input(self):
+    self.button.focus_set()
+    self.button.configure(fg_color="gray80")
+    self.button.configure(state="disabled")
+
+    self.creneaux_frame.pack()
+
+  def exit(self, event=None):
+    self.button.configure(fg_color="gray85")
+    self.button.configure(state="normal")
+
+    self.creneaux_frame.pack_forget()
+
+  def reset(self, event=None):
+    self.value = None
+    self.button.configure(text=" ")
+
+    if event is not None:
+      self.focus_set()
+
+  def set(self, value):
+    jours = ["lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi", "dimanche"]
+    self.value = value
+    if value is not None:
+      jour, heure = value
+      self.button.configure(text=f"creneau {str(heure + 1)}, {jours[jour]}")
+    self.exit()
 
 #PROF
 class ProfEntry(CTkFrame):
@@ -318,7 +385,7 @@ class ProfEntry(CTkFrame):
     super().__init__(master, fg_color='transparent', corner_radius=0, **kwargs)
 
     #contenu
-    self.titre_label = CTkLabel(self, text=titre)
+    self.titre_label = CTkLabel(self, text=titre.replace("_", " ").upper())
     self.entree = ProfButton(self, value,  functions[2], functions[3], border_color="#979DA2", border_width=2)
 
     self.titre_label.pack(fill=X, padx=3)
@@ -337,11 +404,12 @@ class ProfEntry(CTkFrame):
 #DEROULÉ PÉDAGOGIQUE
 #Prof:[Groupes]
 class ProfPed(CTkFrame):
-  def __init__(self, master, prof, groupes, inp, ext, create, delete):
+  def __init__(self, master, prof, groupes, inp, ext, existe, create, delete):
     super().__init__(master, fg_color='transparent', corner_radius=0)
 
     CTkLabel(self, text="PROFESSEUR :").pack(anchor="w", padx=3)
-    ProfButton(self, prof, inp, ext, callback=self.set_prof, anchor="w").pack(fill=X, expand=True, padx=3)
+    self.prf_button = ProfButton(self, prof, inp, ext, callback=self.set_prof, anchor="w")
+    self.prf_button.pack(fill=X, expand=True, padx=9)
 
     frame = CTkFrame(self, fg_color='transparent', corner_radius=0)
     frame.pack(fill=X)
@@ -349,15 +417,15 @@ class ProfPed(CTkFrame):
     self.frame_g = CTkFrame(frame, fg_color='transparent', corner_radius=0)
     self.frame_d = CTkFrame(frame, fg_color='transparent', corner_radius=0)
 
-    CTkLabel(frame, text="GROUPES :").pack(anchor="w", padx=12)
+    CTkLabel(frame, text="GROUPES :").pack(anchor="w", padx=3)
     self.gpe_button = GroupeButton(frame, None, inp, ext, callback=self.set_grpe, anchor="w")
-    self.gpe_button.pack(fill=X, expand=True, padx=12, side=BOTTOM)
+    self.gpe_button.pack(fill=X, expand=True, padx=9, side=BOTTOM)
 
 
     self.prof = prof
     self.groupes = groupes
 
-
+    self.existe = existe
     self.create = create
     self.delete = delete
 
@@ -376,7 +444,7 @@ class ProfPed(CTkFrame):
 
   def ajouter_ligne(self, groupe):
     label = CTkLabel(self.frame_g, text=groupe.nom, anchor="w")
-    button = CTkLabel(self.frame_d, text="x", anchor="e")
+    button = CTkLabel(self.frame_d, text=" x ", anchor="e")
 
     label.pack(fill=X, expand=True, padx=7)
     button.pack(padx=3)
@@ -389,6 +457,10 @@ class ProfPed(CTkFrame):
     button.destroy()
 
   def set_prof(self, prof):
+    if self.existe(prof):
+      self.prf_button.set(self.prof)
+      return
+
     if self.prof is None:
       if prof is not None:
         self.gpe_button.enable()
@@ -406,49 +478,110 @@ class ProfPed(CTkFrame):
       self.ajouter_ligne(groupe)
     self.gpe_button.reset()
 
-#{Prof:[Groupes]}
+  def exit(self):
+    self.prf_button.exit()
+    self.gpe_button.exit()
+
+#({Prof:[Groupes]}, (jour, heure), duree, salle)
 class CreneauPed(CTkFrame):
-  def __init__(self, master, values, inp, ext, **kwargs):
+  def __init__(self, master, values, inp, ext, add, dlt, **kwargs):
     super().__init__(master, fg_color='transparent', corner_radius=0, border_width=2, **kwargs)
 
     self.prof_peds = []
 
     self.master = master
     self.values = values
-    
+    self.toggled = True
 
     self.inp = inp
     self.ext = ext
+    self.add = add
+    self.dlt = dlt
 
-    for prof, groupes in values.items():
+    frame = CTkFrame(self, fg_color="transparent", corner_radius=0)
+    frame.pack(fill=X, expand=True, pady=(0,2))
+    label = CTkLabel(frame, text="copier  ", anchor="e")
+    label.pack(side=RIGHT)
+    label.bind("<Button-1>", self.copy)
+    label = CTkLabel(frame, text="supprimer  ", anchor="e")
+    label.pack(side=RIGHT)
+    label.bind("<Button-1>", lambda _:dlt(self))
+    self.toggle_button = CTkLabel(frame, text="  v  ", anchor="w")
+    self.toggle_button.pack(side=LEFT)
+    self.toggle_button.bind("<Button-1>", self.toggle)
+
+    self.main_frame = CTkFrame(self, fg_color="transparent", corner_radius=0)
+    self.main_frame.pack(fill=X, expand=True, pady=(0,2))
+
+    salle_fixe_frame = CTkFrame(self.main_frame, fg_color="transparent", corner_radius=0)
+    salle_fixe_frame.pack(side=BOTTOM, fill=X, expand=True)
+    CTkLabel(salle_fixe_frame, text="SALLE FIXE * : ").pack(side=LEFT, padx=3)
+    self.salle = SalleButton(salle_fixe_frame, values[3], inp, ext, anchor="w")
+    self.salle.pack(side=RIGHT, fill=X, expand=True, padx=(3,9))
+
+    creneau_fixe_frame = CTkFrame(self.main_frame, fg_color="transparent", corner_radius=0)
+    creneau_fixe_frame.pack(side=BOTTOM, fill=X, expand=True)
+    self.creneau = CreneauInput(creneau_fixe_frame, values[1], titre="CRENEAU FIXE * : ", nb_creneau=6, nb_jour=5)
+    self.creneau.pack(side=RIGHT, fill=X, expand=True, padx=(3,9))
+
+    duree_frame = CTkFrame(self.main_frame, fg_color="transparent", corner_radius=0)
+    duree_frame.pack(side=BOTTOM, fill=X, expand=True)
+    CTkLabel(duree_frame, text="DUREE : ").pack(side=LEFT, padx=3)
+    textes = ["1 creneau", "2 creneaux", "3 creneaux"]
+    self.duree = CTkOptionMenu(duree_frame, fg_color="gray85", button_color="gray85", button_hover_color="gray83", text_color="black", values=textes)
+    self.duree.pack(side=RIGHT, fill=X, expand=True, padx=(3,9))
+    self.duree.set(textes[values[2] - 1])
+
+    for prof, groupes in values[0].items():
       self.creer_prof_ped(prof, groupes)
 
     self.create()
 
-  def creer_prof_ped(self, prof, groupes):
-    self.prof_peds.append(ProfPed(self, prof, groupes, self.inp, self.ext, self.create, self.delete))
+  def toggle(self, event=None):
+    if self.toggled:
+      self.main_frame.pack_forget()
+      self.toggled = False
+      self.toggle_button.configure(text="  >  ")
+    else:
+      self.main_frame.pack(fill=X, expand=True, pady=(0,2))
+      self.toggled = True
+      self.toggle_button.configure(text="  v  ")
 
-    self.prof_peds[-1].pack(fill=X, pady=(0,3))
+  def creer_prof_ped(self, prof, groupes):
+    self.prof_peds.append(ProfPed(self.main_frame, prof, groupes, self.inp, self.ext, self.existe, self.create, self.delete))
+
+    self.prof_peds[-1].pack(fill=X, pady=(0,0))
 
   def delete(self, prof_ped):
     prof_ped.destroy()
     self.prof_peds.remove(prof_ped)
 
     if not self.prof_peds:
-      self.create()
+      self.dlt(self)
 
   def create(self):
     self.creer_prof_ped(None, [])
 
+  def existe(self, prof):
+    if prof is None:
+      return False
+    for prof_ped in self.prof_peds:
+      if prof_ped.prof == prof:
+        return True
+    return False
+
   def value(self):
     value = {}
     for prof_ped in self.prof_peds:
+      prof_ped.exit()
       if prof_ped.prof is not None:
         value[prof_ped.prof] = prof_ped.groupes
-    return value
+    return (value, self.creneau.value, int(self.duree.get()[0]) ,self.salle.value)
 
+  def copy(self, event=None):
+    self.add(deepcopy(self.value()))
 
-#[{Prof:[Groupes]}]
+#[({Prof:[Groupes]}, (jour, heure), duree, salle)]
 class DerPedEntry(CTkFrame):
   def __init__(self, master, titre, *, value, functions, **kwargs):
     super().__init__(master, fg_color='transparent', corner_radius=0, **kwargs)
@@ -462,7 +595,7 @@ class DerPedEntry(CTkFrame):
     self.creneaux = []
 
     #contenu
-    self.titre_label = CTkLabel(self, text=titre)
+    self.titre_label = CTkLabel(self, text=titre.replace("_", " ").upper())
     self.frame = CTkFrame(self, border_width=2, fg_color="transparent")
 
     self.bouton_plus = CTkButton(self.frame, text='+', command=self.ajouter_creneau, width=30, height=30)
@@ -477,11 +610,15 @@ class DerPedEntry(CTkFrame):
     #fonction
     self.on_saved = functions[1]
 
+  def delete(self, creneau):
+    self.creneaux.remove(creneau)
+    creneau.destroy()
+
   def save(self, event=None):
     self.value = []
     for i, creneau in enumerate(self.creneaux):
       value = creneau.value()
-      if value != {}:
+      if value != ({}, None, None):
         self.value.append(value)
 
     new_value = self.value
@@ -489,10 +626,10 @@ class DerPedEntry(CTkFrame):
 
   def ajouter_creneau(self, value = None):
     if value is None:
-      value = {}
+      value = ({}, None, 1, None)
 
-    creneau = CreneauPed(self.frame, values=value, inp=self.inp, ext=self.ext)
-    creneau.pack(padx=2, pady=(3,0), fill=X)
+    creneau = CreneauPed(self.frame, values=value, inp=self.inp, ext=self.ext, add=self.ajouter_creneau, dlt=self.delete)
+    creneau.pack(padx=3, pady=(3,0), fill=X)
 
     self.creneaux.append(creneau)
 
@@ -646,7 +783,7 @@ class WeekParamBox(CTkFrame):
 #BATTERIE D'ITEM DE L'EDT
 #LIGNE D'AFFICHAGE D'UN ITEM
 class ItemLine(CTkFrame):
-  def __init__(self, master, titre, *, master_titre, on_clic, selectable=True, **kwargs):
+  def __init__(self, master, titre, *, master_titre, on_clic, on_del, selectable=True, **kwargs):
     super().__init__(master, fg_color='transparent', corner_radius=0, **kwargs)
 
     #contenu
@@ -656,6 +793,7 @@ class ItemLine(CTkFrame):
 
     #fonction
     self.on_clic = on_clic
+    self.on_del = on_del
 
     #variable
     self.titre = titre
@@ -696,13 +834,13 @@ class ItemLine(CTkFrame):
     self.titre = nom
     self.texte.configure(text=nom)
 
-  def delete(sel, event):
-    print("supppr")
+  def delete(self, event):
+    self.on_del(self)
 
 
 #ENSEMBLE DE LIGNE
 class ItemBox(CTkFrame):
-  def __init__(self, master, titre, *, can_add, on_add, on_clic, **kwargs):
+  def __init__(self, master, titre, *, can_add, on_add, on_clic, on_del, **kwargs):
     super().__init__(master, corner_radius=0, **kwargs)
 
     #frame
@@ -729,6 +867,7 @@ class ItemBox(CTkFrame):
     self.can_add = can_add
     self.on_add = on_add
     self.on_clic = on_clic
+    self.on_del = on_del
 
     #variable
     self.titre = titre
@@ -786,7 +925,7 @@ class ItemBox(CTkFrame):
 
     if self.can_add(item_nom):
       #creer la ligne du nouvelle item
-      item = ItemLine(self.body, item_nom, master_titre=self.titre, on_clic=self.on_clic)
+      item = ItemLine(self.body, item_nom, master_titre=self.titre, on_clic=self.on_clic, on_del=self.del_item)
       self.items.append(item)
       item.pack(fill=X)
 
@@ -803,8 +942,31 @@ class ItemBox(CTkFrame):
     else:
       self.vider_entree()
 
+  def empty(self):
+    if not self.is_empty:
+      self.texte_vide.pack()
+      self.is_empty = True
 
+    for item in self.items:
+      item.destroy()
 
+  def add(self, noms):
+    if self.is_empty and noms:
+      self.texte_vide.pack_forget()
+      self.is_empty = False
+
+    for nom in noms:
+      item = ItemLine(self.body, nom, master_titre=self.titre, on_clic=self.on_clic, on_del=self.del_item)
+      self.items.append(item)
+      item.pack(fill=X)
+
+  def del_item(self, item):
+    self.on_del(item.titre)
+    self.items.remove(item)
+    item.destroy()
+
+    if not self.items:
+      self.texte_vide.pack()
 
 
 
@@ -819,23 +981,23 @@ class ItemBox(CTkFrame):
 
 
 class MenuBar(CTkFrame):
-  def __init__(self, master, *, sauvegarder, **kwargs):
+  def __init__(self, master, *, titre, functions, **kwargs):
     super().__init__(master, corner_radius=0, fg_color="transparent", **kwargs)
 
     #contenu
+    values = list(functions.keys())
     self.fichier_menu = CTkOptionMenu(self, fg_color="gray93", button_color="gray93", button_hover_color="gray93", text_color="black",
-          values=["Sauvegarder"], corner_radius=0, command=self.clicked)
-    self.fichier_menu.set("Fichier")
+          values=values, corner_radius=0, command=self.clicked)
+    self.fichier_menu.set(titre)
 
     self.fichier_menu.pack(side=LEFT, padx=0, pady=0)
 
     #fonction
-    self.sauvegarder=sauvegarder
+    self.functions = functions
+    self.titre = titre
 
   def clicked(self, value):
-    self.fichier_menu.set("Fichier")
-
-    if value == "Sauvegarder":
-      self.sauvegarder()
+    self.fichier_menu.set(self.titre)
+    self.functions[value]()
 
 
